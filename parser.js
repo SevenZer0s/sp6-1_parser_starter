@@ -1,5 +1,3 @@
-// @todo: напишите здесь код парсера
-
 // 1. Получение мета-информации страницы
 
 // Язык страницы
@@ -11,7 +9,9 @@ const pageTitleWithoutName = pageTitle[1].trim()
 
 // Ключевые слова
 const metaKeywords = document.querySelector('meta[name="keywords"]')
-const keywords = metaKeywords.content.split(',')
+const keywords = metaKeywords.content
+    .split(',')
+    .map(word => word.trim())
 
 // Описание из мета-тега
 const metaDescription = document.querySelector('meta[name="description"]').content 
@@ -31,6 +31,129 @@ metaOg.forEach((tag) => {
 // console.log(document)
 // 2. Данные карточки товара
 
+// Идентификатор товара
+const firstSection = document.querySelector('section')
+const productId = firstSection.dataset.id // для поиска среди data-...
+// const productId = firstSection.getAttribute('id')
+
+// Массив фотографий
+function parseImages (productSelector = '.product') {
+    const product = document.querySelector(productSelector)
+
+    if (!product) {
+        return []
+    }
+
+    const images = []
+
+    const mainIngElement = product.querySelector('.preview figure img')
+    images.push({
+        full: mainIngElement.src,
+        thumb: mainIngElement.src,
+        alt: mainIngElement.alt
+    })
+
+    const thumbImgs = product.querySelectorAll('.preview nav img')
+
+    thumbImgs.forEach((img) => {
+        const full = img.src
+        const thumb = img.dataset.src
+        const alt = img.alt
+
+        if (full !== images[0].full) {
+            images.push(
+                {full, thumb, alt}
+            )
+        }
+    })
+
+    return images
+}
+
+const parseImage = parseImages()
+
+// Статус лайка
+const likeButton = document.querySelector('.like')
+const isLiked = likeButton.classList.contains('active') // ne rabotaet
+
+// Название товара
+const productName = document.querySelector('h1').textContent.trim()
+
+// Массивы бирок, категорий и скидок 
+const tagsArr = document.querySelectorAll('.tags span')
+
+const tagsCategory = []
+const tagsLabel = []
+const tagsDiscount = []
+
+tagsArr.forEach((tag) => {
+    const text = tag.textContent.trim()
+
+    if(tag.classList.contains('green')) {
+        tagsCategory.push(text)
+    } else if (tag.classList.contains('blue')) {
+        tagsLabel.push(text)
+    } else if (tag.classList.contains('red')) {
+        tagsDiscount.push(text)
+    }
+})
+
+// Цена товара с учётом скидки
+const price = document.querySelector('.price')
+    .firstChild
+    .textContent
+    .trim()
+    .replace(/\D/, '' ) // заменяем любой символ кроме цифры
+
+// Цена товара без скидки
+const oldPrice = document.querySelector('.price span')
+    .textContent
+    .replace(/\D/, '' ) // заменяем любой символ кроме цифры
+
+// Размер скидки
+const discount = `${100 - ((price / oldPrice) * 100)}%`
+
+// Валюта
+const priceText = document.querySelector('.price').textContent
+let currency = null
+if (priceText.includes('$')) currency = 'USD'
+if (priceText.includes('€')) currency = 'EUR'
+if (priceText.includes('₽')) currency = 'RUB'
+
+// Свойства товара
+const productProperties = {}
+
+const productPropertiesContent = document.querySelectorAll('.properties li')
+productPropertiesContent.forEach((row) => {
+    const cells = row.querySelectorAll('span')
+
+    if (cells.length >= 2) {
+        const key = cells[0].textContent
+        const value = cells[1].textContent
+
+        productProperties[key] = value
+    }
+})
+
+// Полное описание (Полная хуйня)
+function parseFullDescription () {
+    const fullDescription = document.querySelector('.description')
+
+    if(!fullDescription) return ''
+
+    const descriptionText = fullDescription.querySelectorAll('p')
+
+    let html=''
+
+    descriptionText.forEach((str) => {
+        html += `<p>${str.textContent.trim()}</p>` 
+    })
+
+    return html
+}
+
+const fullDescription = parseFullDescription()
+
 // 3. Массив дополнительных товаров.
 
 // 4. Массив обзоров
@@ -39,7 +162,7 @@ metaOg.forEach((tag) => {
 function parsePage() {
     return {
         meta: {lang, pageTitleWithoutName, keywords, metaDescription, ogTags},
-        product: {},
+        product: {productId, parseImage, isLiked, productName, tagsCategory, tagsLabel, tagsDiscount, price, oldPrice, discount, currency, productProperties, fullDescription},
         suggested: [],
         reviews: []
     };
