@@ -114,11 +114,16 @@ const oldPrice = document.querySelector('.price span')
 const discount = `${100 - ((price / oldPrice) * 100)}%`
 
 // Валюта
-const priceText = document.querySelector('.price').textContent
-let currency = null
-if (priceText.includes('$')) currency = 'USD'
-if (priceText.includes('€')) currency = 'EUR'
-if (priceText.includes('₽')) currency = 'RUB'
+function parseCurrency(text) {
+    if(!text) return null
+
+    if (text.includes('$')) return 'USD'
+    if (text.includes('€')) return 'EUR'
+    if (text.includes('₽')) return 'RUB'
+
+}
+const priceTextEl = document.querySelector('.price').textContent
+const currency = parseCurrency(priceTextEl)
 
 // Свойства товара
 const productProperties = {}
@@ -155,16 +160,90 @@ function parseFullDescription () {
 const fullDescription = parseFullDescription()
 
 // 3. Массив дополнительных товаров.
+function parseDopProduct () {
+    const items = document.querySelectorAll('.suggested .items article')
+
+    const result = []
+
+    items.forEach((item) => {
+        const img = item.querySelector('img')
+        const title = item.querySelector('h3')
+        const priceEl = item.querySelector('b')
+        const description = item.querySelector('p')
+
+        const priceText = priceEl.textContent.trim()
+    
+        const price = priceText.replace(/\D/, '')
+        const currency = parseCurrency(priceText)
+
+    result.push({
+        image: img.src,
+        title: title.textContent.trim(),
+        price,
+        currency,
+        description: description.textContent.trim()
+        })
+    })
+
+    return result
+} 
+
+const dopProduct = parseDopProduct()
 
 // 4. Массив обзоров
 
+function parseReviews () {
+    const items = document.querySelectorAll('.reviews .items article')
+
+    const result = []
+
+    items.forEach((item) => {
+        const stars = item.querySelectorAll('.rating span.filled')
+        const rating = stars.length // Количество заполненых звезд - рейтинг
+
+        const title = item.querySelector('h3.title').textContent.trim()
+        const description = item.querySelector('p').textContent.trim()
+
+        const authorName = item.querySelector('.author span').textContent.trim()
+        const avatar = item.querySelector('.author img').src
+
+        const dateText = item.querySelector('.author i').textContent.trim()
+        const dateParts = dateText.split('/')
+        const date = `${dateParts[0]}.${dateParts[1]}.${dateParts[2]}`
+
+        result.push({
+            rating,
+            title,
+            description,
+            author: {avatar, authorName},
+            date
+        })
+    })
+
+    return result
+}
+
+const review = parseReviews()
 
 function parsePage() {
     return {
         meta: {lang, pageTitleWithoutName, keywords, metaDescription, ogTags},
-        product: {productId, parseImage, isLiked, productName, tagsCategory, tagsLabel, tagsDiscount, price, oldPrice, discount, currency, productProperties, fullDescription},
-        suggested: [],
-        reviews: []
+        product: {
+            productId, 
+            parseImage, 
+            isLiked, 
+            productName, 
+            tagsCategory, 
+            tagsLabel, 
+            tagsDiscount, 
+            price, 
+            oldPrice, 
+            discount, 
+            currency, 
+            productProperties, 
+            fullDescription},
+        suggested: [dopProduct],
+        reviews: [review]
     };
 }
 
