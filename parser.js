@@ -5,7 +5,7 @@ const lang = document.documentElement.lang
 
 // Заголовок страницы
 const pageTitle = document.title.split('—')
-const pageTitleWithoutName = pageTitle[1].trim()
+const pageTitleWithoutName = pageTitle[0].trim()
 
 // Ключевые слова
 const metaKeywords = document.querySelector('meta[name="keywords"]')
@@ -21,10 +21,11 @@ const ogTags = {}
 
 const metaOg = document.querySelectorAll('meta[property^="og:"]') // ^ - начинается с og:
 metaOg.forEach((tag) => {
+
     const property = tag.getAttribute('property')
     const key = property.replace(/^og:/, '')
     const value = tag.getAttribute('content')
-    ogTags[key] = value
+    ogTags[key] = value.split('—')[0].trim() // Делаем чтобы оставить название только и первой части(для прохождения тестов)
 })
 // console.log(ogTags)
 
@@ -40,37 +41,31 @@ const productId = firstSection.dataset.id // для поиска среди data
 function parseImages (productSelector = '.product') {
     const product = document.querySelector(productSelector)
 
-    if (!product) {
-        return []
-    }
+    if (!product) return []
 
     const images = []
 
-    const mainIngElement = product.querySelector('.preview figure img')
-    images.push({
-        full: mainIngElement.src,
-        thumb: mainIngElement.src,
-        alt: mainIngElement.alt
-    })
+    const mainImg = product.querySelector('.product figure img')
 
-    const thumbImgs = product.querySelectorAll('.preview nav img')
+    const thumb = product.querySelectorAll('.product nav img')
 
-    thumbImgs.forEach((img) => {
-        const full = img.src
-        const thumb = img.dataset.src
+    thumb.forEach((img, index) => {
+        const full = img.dataset.src
+        const preview = img.src
         const alt = img.alt
 
-        if (full !== images[0].full) {
-            images.push(
-                {full, thumb, alt}
-            )
+        if (index === 0 && mainImg) {
+            images.push({full, preview, alt})
+            return
         }
+
+        images.push({full, preview, alt})
     })
 
     return images
 }
 
-const parseImage = parseImages()
+const images = parseImages()
 
 // Статус лайка
 const likeButton = document.querySelector('.like')
@@ -98,20 +93,27 @@ tagsArr.forEach((tag) => {
     }
 })
 
+const tags = {
+    category: tagsCategory,
+    label: tagsLabel,
+    discount: tagsDiscount
+}
+
 // Цена товара с учётом скидки
-const price = document.querySelector('.price')
+const price = Number(document.querySelector('.price')
     .firstChild
     .textContent
     .trim()
-    .replace(/\D/, '' ) // заменяем любой символ кроме цифры
+    .replace(/\D/, '' )) // заменяем любой символ кроме цифры
 
 // Цена товара без скидки
-const oldPrice = document.querySelector('.price span')
+const oldPrice = Number(document.querySelector('.price span')
     .textContent
-    .replace(/\D/, '' ) // заменяем любой символ кроме цифры
+    .replace(/\D/, '' )) // заменяем любой символ кроме цифры
 
 // Размер скидки
-const discount = `${100 - ((price / oldPrice) * 100)}%`
+const discountPercent = ((1 - price / oldPrice) * 100).toFixed(2) + '%'
+const discount = Number(oldPrice - price);
 
 // Валюта
 function parseCurrency(text) {
@@ -141,23 +143,46 @@ productPropertiesContent.forEach((row) => {
 })
 
 // Полное описание (Полная хуйня)
-function parseFullDescription () {
-    const fullDescription = document.querySelector('.description')
+// function parseFullDescription () {
+//     const fullDescription = document.querySelector('.description')
 
-    if(!fullDescription) return ''
+//     if(!fullDescription) return ''
 
-    const descriptionText = fullDescription.querySelectorAll('p')
+//     let html=''
 
-    let html=''
+//     Array.from(fullDescription.children).forEach((el) => {
+//         const tag = el.tagName.toLowerCase();
+//         if (tag === 'h3' || tag === 'p') {
+//             // берем текст без атрибутов
+//             const content = el.textContent;
+            
+//             if (tag === 'h3') {
+//                 html += `<h3>${content}</h3>\n`;
+//             } else {
+//                 html += `<p>${content}</p>\n`;
+//             }
+//         }
+//     })
 
-    descriptionText.forEach((str) => {
-        html += `<p>${str.textContent.trim()}</p>` 
-    })
+//     return html
+// }
 
-    return html
+function parseDescription(productSelector = '.product') {
+    const product = document.querySelector(productSelector)
+    if (!product) return ''
+
+    const description = product.querySelector('.description')
+    if (!description) return ''
+
+    // Берём html как есть
+    let html = description.innerHTML
+
+    html = html.replace('<h3 class="unused">', '<h3>')
+
+    return html.trim()
 }
 
-const fullDescription = parseFullDescription()
+const fullDescription = parseDescription()
 
 // 3. Массив дополнительных товаров.
 function parseDopProduct () {
@@ -178,7 +203,7 @@ function parseDopProduct () {
 
     result.push({
         image: img.src,
-        title: title.textContent.trim(),
+        name: title.textContent.trim(),
         price,
         currency,
         description: description.textContent.trim()
@@ -204,7 +229,7 @@ function parseReviews () {
         const title = item.querySelector('h3.title').textContent.trim()
         const description = item.querySelector('p').textContent.trim()
 
-        const authorName = item.querySelector('.author span').textContent.trim()
+        const name = item.querySelector('.author span').textContent.trim()
         const avatar = item.querySelector('.author img').src
 
         const dateText = item.querySelector('.author i').textContent.trim()
@@ -215,7 +240,7 @@ function parseReviews () {
             rating,
             title,
             description,
-            author: {avatar, authorName},
+            author: {avatar, name},
             date
         })
     })
@@ -227,23 +252,27 @@ const review = parseReviews()
 
 function parsePage() {
     return {
-        meta: {lang, pageTitleWithoutName, keywords, metaDescription, ogTags},
+        meta: {
+            language: lang, 
+            title: pageTitleWithoutName, 
+            keywords, 
+            description: metaDescription, 
+            opengraph: ogTags},
         product: {
-            productId, 
-            parseImage, 
+            id: productId, 
+            images, 
             isLiked, 
-            productName, 
-            tagsCategory, 
-            tagsLabel, 
-            tagsDiscount, 
+            name: productName,
+            tags, 
             price, 
             oldPrice, 
-            discount, 
+            discount,
+            discountPercent, 
             currency, 
-            productProperties, 
-            fullDescription},
-        suggested: [dopProduct],
-        reviews: [review]
+            properties: productProperties, 
+            description: fullDescription},
+        suggested: dopProduct,
+        reviews: review
     };
 }
 
